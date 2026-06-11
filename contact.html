@@ -461,6 +461,10 @@
           <input type="email" id="email" name="email" placeholder="you@property.com" required>
         </div>
         <div class="field">
+          <label for="address">Property address</label>
+          <input type="text" id="address" name="address" placeholder="Street, city, ZIP">
+        </div>
+        <div class="field">
           <label for="msg">Anything we should know?</label>
           <textarea id="msg" name="msg" placeholder="Service frequency, current challenges, timeline..."></textarea>
         </div>
@@ -548,30 +552,58 @@
 
   document.getElementById('yr').textContent=new Date().getFullYear();
 
-  document.getElementById('quoteForm').addEventListener('submit',(ev)=>{
+  // Posts the lead into the Resort Pool Services pipeline on the Avolv platform,
+  // then sends the visitor to the thank-you page. Same flow as the Arinton site.
+  document.getElementById('quoteForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const f=ev.target;
-    const get=id=>(f.querySelector('#'+id)?.value||'').trim();
-    if(!get('prop')||!get('name')||!get('email')){
-      ['prop','name','email'].forEach((id)=>{
-        const el=f.querySelector('#'+id);
-        if(!el.value.trim()){el.style.borderColor='#e8617a';}
+    const f = ev.target;
+    const get = id => (f.querySelector('#'+id)?.value || '').trim();
+    if (!get('prop') || !get('name') || !get('email')) {
+      ['prop','name','email'].forEach((id) => {
+        const el = f.querySelector('#'+id);
+        if (el && !el.value.trim()) { el.style.borderColor = '#e8617a'; }
       });
       return;
     }
-    const subject=encodeURIComponent('Quote request: '+get('prop'));
-    const body=encodeURIComponent(
-      'Property: '+get('prop')+'\n'+
-      'Type: '+get('type')+'\n'+
-      'Number of pools: '+get('pools')+'\n'+
-      'Name: '+get('name')+'\n'+
-      'Phone: '+get('phone')+'\n'+
-      'Email: '+get('email')+'\n\n'+
-      'Notes: '+get('msg')
-    );
-    window.location.href='mailto:service@resortpoolservices.com?subject='+subject+'&body='+body;
-    f.style.display='none';
-    document.getElementById('formDone').classList.add('show');
+    const btn = f.querySelector('button[type="submit"]');
+    const label = btn.textContent;
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    const details =
+      'Property / Community: ' + get('prop') + '\n' +
+      'Property type: ' + get('type') + '\n' +
+      'Number of pools: ' + get('pools') + '\n' +
+      (get('address') ? 'Property address: ' + get('address') + '\n' : '') +
+      '\nNotes: ' + (get('msg') || 'No additional notes.');
+
+    const payload = {
+      name: get('name'),
+      email: get('email'),
+      phone: get('phone'),
+      service: get('type'),
+      address: get('address'),
+      message: details,
+      source: 'Website contact form'
+    };
+
+    try {
+      const res = await fetch('https://api.avolv.ai/api/marketing/lead-ingestion?business=resort-pool-services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Status ' + res.status);
+      window.location.href = 'thank-you.html';
+    } catch (err) {
+      btn.textContent = label;
+      btn.disabled = false;
+      const note = f.querySelector('.form-note');
+      if (note) {
+        note.textContent = 'We could not send that just now. Please call (863) 800-1234 or email service@resortpoolservices.com and we will jump on it.';
+        note.style.color = '#e8a0ad';
+      }
+    }
   });
 </script>
 </body>
